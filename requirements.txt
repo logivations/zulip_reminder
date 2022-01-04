@@ -1,0 +1,10 @@
+aiosqlite==0.17.0
+APScheduler==3.8.0
+fastapi==0.70.0
+SQLAlchemy==1.4.26
+starlette==0.16.0
+urllib3==1.26.7
+uvicorn==0.15.0
+zulip==0.8.1
+zulip-bots==0.8.1
+zulip-botserver==0.8.1
