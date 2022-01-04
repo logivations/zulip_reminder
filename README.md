@@ -39,9 +39,10 @@ Available interval is : minute, hour, day, week, month, minutes, hours, days, we
 
 
 `repeat me about text every Friday at 12:30`
-`repeat name_stream about text Friday at 13:00'
 
-`repeat me about don`t forget drink water every 30 minutes`
+`repeat name_stream about text Friday at 13:00`
+
+`repeat me about don't forget drink water every 30 minutes`
 
 To remove a reminder:
 `remove <reminder_id>`
@@ -49,7 +50,17 @@ To remove a reminder:
 To list reminders:
 `list`
 
+## Reminder in stream
 
+For work reminder in stream, reminder have to be stream member
+
+`repeat <stream> about <some text> every <day> at <time>`
+
+`repeat <stream> about <some text> every <interval>`
+
+`<stream> == stream name`
+
+## -------------------------------------------------
 Based on https://github.com/apkallum/zulip-reminder-bot
 
 ### For run bot
