@@ -163,8 +163,10 @@ async def repeat_reminder(request: Reminder):
     )
     if "@" in request.to:
         to = request.to
+    elif "#" in request.to:
+        to = client.get_stream_id(request.to.replace("#", ""))
     else:
-        to = await get_user(request.to) if not request.is_stream else client.get_stream_id(request.to)["stream_id"]
+        to = await get_user(request.to)
     last_record_id = await database.execute(query)
     interval_query = intervals.insert().values(
         reminder_id=last_record_id,
@@ -188,7 +190,7 @@ async def repeat_reminder(request: Reminder):
         if not zone:
             return {"success": True, "timezone": "Set timezone, see help"}
         task["day_of_week"] = day
-        task["hour"] = hour - int(str(zone)[0])  # hardcode
+        task["hour"] = int(hour) - int(str(zone)[0])  # hardcode
         task["minute"] = minute
 
     schedule.add_job(
