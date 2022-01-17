@@ -8,3 +8,6 @@ uvicorn==0.15.0
 zulip==0.8.1
 zulip-bots==0.8.1
 zulip-botserver==0.8.1
+databases=0.5.4
+pydantic==1.9.0
+email-validator==1.1.3
