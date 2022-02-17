@@ -64,6 +64,7 @@ async def test():
 @app.on_event("startup")
 async def startup():
     await database.connect()
+    app.current_timezone = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo.utcoffset(None)
 
 
 @app.on_event("shutdown")
@@ -187,7 +188,7 @@ async def repeat_reminder(request: Reminder):
         trigger = "interval"
     else:
         zone = await get_timezone(request.zulip_user_email)
-        if not zone:
+        if zone is None:
             return {"success": True, "timezone": "Set timezone, see help"}
         task["day_of_week"] = day
         task["hour"] = int(hour) - int(str(zone)[0])  # hardcode
@@ -280,7 +281,7 @@ async def get_timezone(email):
     zone = await database.fetch_one(query=query, values={"email": email})
     if not zone:
         return
-    return datetime.datetime.now(pytz.timezone(zone[0])).utcoffset()
+    return app.current_timezone - datetime.datetime.now(pytz.timezone(zone[0])).utcoffset()
 
 
 async def get_time(date):
@@ -288,8 +289,7 @@ async def get_time(date):
     for i in date:
         if ":" in i:
             hour, minute = i.split(":")
-
-        if ARGS_WEEK_DAY.get(i):
+        if ARGS_WEEK_DAY.get(i) is not None:
             day = ARGS_WEEK_DAY[i]
         if i in ARGS_INTERVAL:
             unit = i if i.endswith("s") else i + "s"

@@ -30,17 +30,17 @@ Add to some person
 Available time to positive number: minutes, hours, days, weeks, minute, hour, day, week or time with date
 
 To repeat a reminder: 
-`repeat <@user or stream> about <some text> every <day> at <time>`
-`repeat <@user or stream> about <some text> every <interval>`
+`repeat <@user or #stream> about <some text> every <day> at <time>`
+`repeat <@user or #stream> about <some text> every <interval>`
 
-Available <user or stream> is: @username, stream_name, me, here
+Available <user or stream> is: @username, #stream_name, me, here
 Available interval is : minute, hour, day, week, month, minutes, hours, days, weeks, months
 `repeat @user_name about stand up with team every Friday at 12:30`
 
 
 `repeat me about text every Friday at 12:30`
 
-`repeat name_stream about text Friday at 13:00`
+`repeat #name_stream about text Friday at 13:00`
 
 `repeat me about don't forget drink water every 30 minutes`
 
@@ -52,13 +52,11 @@ To list reminders:
 
 ## Reminder in stream
 
-For work reminder in stream, reminder have to be stream member
+For work reminder in stream, reminder have to be stream member, if stream is private
 
-`repeat <stream> about <some text> every <day> at <time>`
+`repeat <#stream> about <some text> every <day> at <time>`
 
-`repeat <stream> about <some text> every <interval>`
-
-`<stream> == stream name`
+`repeat <#stream> about <some text> every <interval>`
 
 ## -------------------------------------------------
 Based on https://github.com/apkallum/zulip-reminder-bot
