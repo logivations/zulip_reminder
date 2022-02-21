@@ -165,7 +165,7 @@ async def repeat_reminder(request: Reminder):
     if "@" in request.to:
         to = request.to
     elif "#" in request.to:
-        to = client.get_stream_id(request.to.replace("#", ""))
+        to = client.get_stream_id(request.to.replace("#", "").replace("**", ""))["stream_id"]
     else:
         to = await get_user(request.to)
     last_record_id = await database.execute(query)
@@ -303,3 +303,12 @@ async def get_user(full_name):
     for user in members:
         if full_name == user["full_name"]:
             return user["email"]
+
+
+@app.get("/db")
+async def get_db():
+    q_1 = "SELECT * FROM reminders"
+    q_2 = "SELECT * FROM intervals"
+    r_1 = await database.fetch_all(q_1)
+    r_2 = await database.fetch_all(q_2)
+    return {"reminders": r_1, "intervals": r_2}
