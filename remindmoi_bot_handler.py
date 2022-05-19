@@ -1,83 +1,79 @@
 import json
-import requests
-import urllib3
+import logging
 from typing import Any, Dict
 
-from bot_helpers import (ADD_ENDPOINT,
-                         REMOVE_ENDPOINT,
+import requests
+import urllib3
+
+from bot_helpers import (REMOVE_ENDPOINT,
                          LIST_ENDPOINT,
-                         REPEAT_ENDPOINT,
-                         MULTI_REMIND_ENDPOINT,
-                         is_add_command,
-                         is_remove_command,
-                         is_list_command,
-                         is_repeat_reminder_command,
-                         is_multi_remind_command,
-                         parse_add_command_content,
                          parse_remove_command_content,
                          generate_reminders_list,
-                         parse_repeat_command_content,
-                         parse_multi_remind_command_content, is_add_on_date_command, parse_add_on_date_command_content,
-                         is_add_to_another, parse_add_command_to_content, ADD_TO_ENDPOINT, is_set_timezone,
-                         set_timezone, SET_TIMEZONE)
-
+                         is_set_timezone,
+                         set_timezone, SET_TIMEZONE, parse_cmd, get_path)
 
 USAGE = '''
-A bot that schedules reminders for users.
-
-First step it is set timezone:
+The first step is to set timezone:
 For example:
 `set timezone Europe/Kiev`
 `set timezone Europe/Berlin`
 
+To store a reminder, write a private message to chat with the bot 
+or if you are in another chat then start your message with the mention of a reminder, like ``@reminder ...``
 
-To store a reminder, mention or send a message to the bot in the following format:
+You can create a reminder to yourself, to some person, or for a stream.
+You can create one-time or recurring reminders.
 
-`add int <positive number> <about>`
 
-`add 1 day clean the dishes`
-`add 10 hours eat`
+The available command for whom:
+``me``, ``here``, ``@user``, ``#stream``
+
 
 Available time to positive number: minutes, hours, days, weeks, minute, hour, day, week
+If you want to remind some large text or in the text will be date format please highlight with double-quotes.
+``me to "SOME LARGE TEXT OR WITH DATE FORMAT" on September 10 at 12:00``
 
 
-`add <date> <about>`
-`add 2021/10/25 10:30 call with Tim`
-`add 2022-01-22 15:00 drink water`
+Few examples of simple reminders to yourself:
+```me to update Jira in 3 hours```
+```me about Happy Birthday!! on June 1 at 10:00```
+```me go home today at 19:00```
+```me call with the team tomorrow at 10:00```
+```me some text in 1 week``` will be a reminder after 1 week at the time it was created or add your time ```at 10:00```
+and many other date formats.
 
-Add to some person
+Few examples for someone:
+```@user to hello in 1 minute```
+```@user to hello on Monday at 15:00```
+```here about update your hours on 1st of July at 17:00```
+```#stream text TIME```
+etc.
 
-`add to <@user_name> about <text> at <date>'
-
-`add to @Petro Gryb about in 10 minutes the beginning at 2021-10-22 11:20`
-`add to @Harry Potter about he is coming at 10 minutes`
-Available time to positive number: minutes, hours, days, weeks, minute, hour, day, week or time with date
-
-To repeat a reminder: 
-`repeat <@user or #stream> about <some text> every <day> at <time>`
-`repeat <@user or #stream> about <some text> every <interval>`
-
-Available <user or stream> is: @username, #stream_name, me, here
-Available interval is : minute, hour, day, week, month, minutes, hours, days, weeks, months
-
-`repeat @user_name about stand up with team every Friday at 12:30`
-`repeat me about text every Friday at 12:30`
-`repeat #name_stream about text Friday at 13:00`    
-`repeat me about don't forget drink water every 30 minutes`
-
-For work reminder in stream, reminder have to be stream member, if stream is private
-
-`repeat <#stream> about <some text> every <day> at <time>`
-`repeat <#stream> about <some text> every <interval>`
+Few examples of interval reminders:
+```me to log hours every day at 10:00```
+```#stream to standup every Monday, Tuesday and Friday at 11:00``` will be sent to default topic ```reminder```,
+If you want to send reminder on a specific topic then create a reminder inside the stream
+```#stream to update your issues every weekday at 10:00```
+```here about some text repeat every Monday at 10:00```
+```@user some text TIME```
+```#stream about Estimation every 2nd week at 15:00 start on Monday```
+```#stream about text every 2nd week at 15:00 start on June 2```
+with end date
+````#stream text every week at 15:00 start on Monday end on 2 June````
 
 
 To remove a reminder:
-`remove <reminder_id>`
+```remove <reminder_id>```
+``remove 2``
 
 To list reminders:
-`list`
+```list```
 '''
 urllib3.disable_warnings()
+
+# logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 class RemindMoiHandler:
@@ -91,78 +87,80 @@ class RemindMoiHandler:
         bot_handler.send_reply(message, bot_response)
 
 
-def get_bot_response(message: Dict[str, Any], bot_handler: Any) -> str:
-    if message["content"].startswith(('help', '?', 'halp')):
+def get_bot_response(message: Dict[str, Any], bot_handler: Any):
+    content = message["content"]
+    if content.startswith(('help', '?', 'halp')):
         return USAGE
     try:
-        if is_add_on_date_command(message["content"]):
-            reminder_object = parse_add_on_date_command_content(message)
-            response = requests.post(url=ADD_ENDPOINT, json=reminder_object)
-            response = response.json()
-            assert response["success"]
-            if response.get("timezone"):
-                return response["timezone"]
-            return f"Reminder stored. Your reminder id is: {response['reminder_id']}"
-        if is_add_command(message["content"]):
-            reminder_object = parse_add_command_content(message)
-            response = requests.post(url=ADD_ENDPOINT, json=reminder_object)
-            response = response.json()
-            assert response['success']
-            return f"Reminder stored. Your reminder id is: {response['reminder_id']}"
-        if is_add_to_another(message["content"]):
-            reminder_obj = parse_add_command_to_content(message)
-            if isinstance(reminder_obj, str):
-                return reminder_obj
-            response = requests.post(url=ADD_TO_ENDPOINT, json=reminder_obj)
-            response = response.json()
-            assert response['success']
-            if response.get("timezone"):
-                return response["timezone"]
-            return f"Reminder stored. Your reminder id is: {response['reminder_id']}"
-        if is_remove_command(message["content"]):
-            reminder_id = parse_remove_command_content(message["content"], message["sender_email"])
-            response = requests.post(url=REMOVE_ENDPOINT, json=reminder_id)
-            response = response.json()
-            return "Reminder deleted." if response['success'] else "It is not your reminder"
-        if is_list_command(message["content"]):
-            zulip_user_email = {"zulip_user_email": message["sender_email"]}
-            response = requests.post(url=LIST_ENDPOINT, json=zulip_user_email)
-            response = response.json()
-            assert response["success"]
-            return generate_reminders_list(response)
-        if is_repeat_reminder_command(message["content"]):
-            repeat_request = parse_repeat_command_content(message)
-            if isinstance(repeat_request, str):
-                return repeat_request
-            response = requests.post(url=REPEAT_ENDPOINT, json=repeat_request)
-            response = response.json()
-            assert response["success"]
-            if response.get("timezone"):
-                return response["timezone"]
-            return f"Reminder will be repeated every {' '.join(repeat_request['time'])}.\n" \
-                   f"Reminder id: {response['reminder_id']}"
-        if is_set_timezone(message["content"]):
-            request = set_timezone(message["content"], message["sender_email"])
-            print("here")
+
+        if is_set_timezone(content):
+            request = set_timezone(content, message["sender_email"])
             response = requests.post(url=SET_TIMEZONE, json=request)
             response = response.json()
             assert response["success"]
             return "Thanks"
-        # if is_multi_remind_command(message["content"]):
-        #     multi_remind_request = parse_multi_remind_command_content(message["content"])
-        #     response = requests.post(url=MULTI_REMIND_ENDPOINT, json=multi_remind_request)
-        #     response = response.json()
-        #     assert response["success"]
-        #     return f"Reminder will be sent to the specified recipients."  # Todo: add list of recepients
-        return "Invalid input. Please check help."
+
+        if content.startswith("remove"):
+            reminder_id = parse_remove_command_content(content, message["sender_email"])
+            response = requests.post(url=REMOVE_ENDPOINT, json=reminder_id)
+            response = response.json()
+            return "Reminder deleted." if response['success'] else "It is not your reminder"
+        if content.startswith("list"):
+            zulip_user_email = {"zulip_user_email": message["sender_email"]}
+            response = requests.post(url=LIST_ENDPOINT, json=zulip_user_email)
+            response = response.json()
+
+            assert response["success"]
+            return generate_reminders_list(response["reminders_list"])
+
+        text, date, to, is_stream, is_interval, prefix, raw_to = parse_cmd(message)
+        if is_stream and message.get("stream_id", False):
+            to = message["stream_id"]
+        print(date)
+        topic = message["subject"] if message["type"] == "stream" else "reminder" if is_stream else None
+        url = get_path(to, is_interval, is_stream)
+        text_date = date.strftime(f"on %b %d at %H:%M") if not isinstance(date, list) else "every " + " ".join(date)
+        reminder = {
+            "zulip_user_email": message.get("sender_email"),
+            "text": text,
+            "created": str(message.get("timestamp")),
+            "to": to,
+            "time": date if isinstance(date, list) else date.strftime("%Y-%m-%d %H:%M"),
+            "is_stream": is_stream,
+            "topic": topic,
+            "is_interval": is_interval,
+            "full_content": content,
+            "text_date": text_date,
+        }
+        print(reminder)
+        response = requests.post(url=url, json=reminder,
+                                 headers={"Content-Type": "application/json; charset=utf-8"}).json()
+
+        print("32323,", response)
+        response_to = "you" if raw_to == "me" else raw_to
+        # when = date.strftime(f"on %b %d at %H:%M") if not isinstance(date, list) else "every " + " ".join(date)
+        if not response["success"]:
+            return response["result"]
+        return_message = f'I will remind {response_to} {prefix} "{text}" {text_date}. Reminder id {response["result"]}'
+        return return_message
+        # # return return_message
+        # message_to_client = {
+        #     "type": "private",
+        #     "to": reminder["zulip_user_email"],
+        #     "content": ""
+        # }
+        # return return_message
     except requests.exceptions.ConnectionError:
+        logger.warning("Server not running")
         return "Server not running, call Pavlo Y."
-    except (json.JSONDecodeError, AssertionError):
+    except (TypeError, KeyError) as e:
+        logger.warning(f"TypeError|KeyError {e}")
+        return "Invalid input. Please check help."
+    except json.JSONDecodeError as e:
+        logger.warning(f"JSONDecodeError {e}")
         return "Something went wrong"
-    except OverflowError:
-        return "What's wrong with you?"
     except Exception as e:
-        print(e)
+        logger.error(f"Exception {e}")
         return "Something went wrong. Call Pavlo Y."
 
 

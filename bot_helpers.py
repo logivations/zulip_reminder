@@ -1,45 +1,157 @@
-
-from typing import Any, Dict
+import logging
+import re
 from datetime import timedelta, datetime
+from typing import Dict, Any
 
-# from remindmoi_bot_handler import get_bot_response
-import pytz
+from dateparser.search import search_dates
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
 
 UNITS = ['minutes', 'hours', 'days', 'weeks']
 SINGULAR_UNITS = ['minute', 'hour', 'day', 'week']
-REPEAT_UNITS = ['weekly', 'daily', 'monthly'] + ['minutely']  # Remove after testing 
+ARGS_WEEK_DAY = {
+    "monday", "tuesday", "wednesday", "thursday", "friday",
+    "saturday", "sunday"
+}
 
-ENDPOINT_URL = "http://127.0.0.1:8000"#'http://localhost:8789'
+ENDPOINT_URL = "http://127.0.0.1:8000"
 ADD_ENDPOINT = ENDPOINT_URL + '/add_reminder'
 REMOVE_ENDPOINT = ENDPOINT_URL + '/remove_reminder'
 LIST_ENDPOINT = ENDPOINT_URL + '/list_reminders'
 REPEAT_ENDPOINT = ENDPOINT_URL + '/repeat_reminder'
-MULTI_REMIND_ENDPOINT = ENDPOINT_URL + '/multi_remind'
 ADD_TO_ENDPOINT = ENDPOINT_URL + "/add_to"
 SET_TIMEZONE = ENDPOINT_URL + "/timezone"
-USER_TIMEZONE = {}
+send_to = {"me": lambda x, o: (x, o["sender_id"]),
+           "here": lambda x, o: (True, o["stream_id"]) if o["type"] == "stream" else send_to["me"](x, o)}
 
 
-def is_add_command(content: str, units=UNITS + SINGULAR_UNITS) -> bool:
-    """
-    Ensure message is in form <COMMAND> reminder <int> UNIT <str>
-    """
-    try:
-        command = content.split(' ', maxsplit=4)  # Ensure the last element is str
+def parse_cmd(message: dict) -> tuple:
+    content: str = message["content"]
+    command = content.split()
 
-        assert command[0] == 'add'
-        assert type(int(command[1])) == int
-        assert command[2] in units
-        assert type(command[3]) == str
-        return True
-    except (IndexError, AssertionError, ValueError):
-        return False
+    is_stream, to, raw_to = parse_send_to(command, message)
+    prefix = parse_prefix(command)
+    is_marked = content.count('"') == 2
+    if is_marked:
+        text, command = parse_marked_text(command)
+
+    date, is_interval = parse_date(command)
+    if not is_marked:
+        text = parse_text(command)
+    return text, date, to, is_stream, is_interval, prefix, raw_to
 
 
-def is_set_timezone(content: str):
+def parse_prefix(message: list) -> str:
+    prefix = ""
+    if message[0] in ("to", "about"):
+        prefix = message.pop(0)
+    return prefix
+
+
+def parse_date(cmd: list) -> tuple:
+    text = " ".join(cmd)
+    index_dict = dict((value, index) for index, value in enumerate(cmd))
+    if "repeat every" in text:
+        is_interval = True
+        rep_idx, every_idx = index_dict["repeat"], index_dict["every"]
+        date = cmd[every_idx + 1::]
+        del cmd[rep_idx::]
+        return date, is_interval
+    if "every weekday" in text:
+        is_interval = True
+        every_idx = index_dict["every"]
+        date = cmd[every_idx + 1::]
+        del cmd[every_idx::]
+        return date, is_interval
+    text_with_date = search_dates(text, settings={"PREFER_DATES_FROM": "current_period"})
+    if text_with_date is None and "every" in cmd:
+        every_idx = index_dict["every"]
+        date = cmd[every_idx + 1::]
+        del cmd[every_idx::]
+
+        is_interval = True
+        return date, is_interval
+    list_text_date = ' '.join([i[0] for i in text_with_date]).split()
+    if index_dict.get("every") is not None and (any(i in cmd for i in SINGULAR_UNITS + UNITS) or sum(
+            1 for i in cmd[index_dict["every"]::] if i.lower().replace(",", "") in ARGS_WEEK_DAY) > 1):
+        is_interval = True
+        every_idx = index_dict["every"]
+        date = cmd[every_idx + 1::]
+        del cmd[every_idx::]
+        return date, is_interval
+    date: datetime = text_with_date[-1][-1]
+    date_indexes = [index_dict[i] for i in list_text_date]
+    is_interval = True if cmd[date_indexes[0] - 1] == "every" else False
+
+    if is_interval:
+        date_indexes.insert(0, date_indexes[0] - 1)
+    del cmd[date_indexes[0]:date_indexes[-1] + 1]
+
+    if date < datetime.now():
+
+        if re.match(r"at\s\d{2}:\d{2}", text_with_date[-1][0]) is not None:
+            period = {"days": 1}
+            logging.info(f"Add day to date, past time is {date}")
+        else:
+            period = {"weeks": 1}
+            logging.info(f"Add week to date, past time is {date}")
+
+        date += timedelta(**period)
+    if date.hour == 0:
+        date += timedelta(hours=9)
+    return date, is_interval
+
+
+def parse_send_to(content: list, message: dict) -> tuple:
+    is_stream = False
+    if content[0].startswith("@"):
+        to = [content.pop(0), content.pop(0)]
+        return is_stream, to, " ".join(to)
+    if content[0].startswith("#"):
+        is_stream = True
+        to = parse_stream_name(content)
+        return is_stream, to, to
+    to = content.pop(0).lower()
+    return *send_to[to](is_stream, message), to
+
+
+def parse_stream_name(text: list) -> str:
+    if text[0].endswith("**"):
+        return text.pop(0)
+    last_index = None
+    for idx, i in enumerate(text[1:]):
+        if i.endswith("**"):
+            last_index = idx
+            break
+    stream_name = " ".join(text[:last_index + 1])
+    del text[:last_index + 1]
+    return stream_name
+
+
+def parse_text(message: list) -> str:
+    return " ".join(message)
+
+
+def parse_marked_text(message: list) -> tuple:
+    message = " ".join(message)
+    start, end = message.find('"'), message.rfind('"')
+    text = message[start + 1:end]
+    message = " ".join(message.replace('"', "").split(text)).strip().split()
+    return text, message
+
+
+def get_path(to, is_interval: bool, is_stream: bool) -> str:
+    if is_interval:
+        return REPEAT_ENDPOINT
+    if isinstance(to, list) or is_stream:
+        return ADD_TO_ENDPOINT
+    return ADD_ENDPOINT
+
+
+def is_set_timezone(content: str) -> bool:
     try:
         command = content.split()
-        print(command)
         assert command[0] == "set"
         assert command[1] == "timezone"
         return True
@@ -47,111 +159,9 @@ def is_set_timezone(content: str):
         return False
 
 
-def is_add_on_date_command(content: str):
-    try:
-        command = content.split(" ", maxsplit=3)
-
-        date_str = " ".join([command[1], command[2]]).replace("/", "-")
-        date = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
-
-        assert command[0] == 'add'
-
-        assert type(date) == datetime
-
-        assert type(command[-1]) == str
-
-        return True
-    except (IndexError, AssertionError, ValueError):
-
-        return False
-
-
-def is_add_to_another(content: str):
-    try:
-        command = content.split(" ")
-        assert command[0] == "add"
-        assert command[1] == "to"
-        assert command[2][0] == "@"
-        return True
-    except (IndexError, AssertionError, ValueError):
-        return False
-
-
-def is_remove_command(content: str) -> bool:
-    try:
-        command = content.split(' ')
-        assert command[0] == 'remove'
-        assert type(int(command[1])) == int
-        return True
-    except (AssertionError, IndexError, ValueError):
-        return False
-
-
-def is_list_command(content: str) -> bool:
-    try:
-        command = content.split(' ')
-        assert command[0] == 'list'
-        return True
-    except (AssertionError, IndexError, ValueError):
-        return False
-
-
-def is_repeat_reminder_command(content: str) -> bool:
-    try:
-        command = content.split(' ')
-        assert command[0] == 'repeat'
-        assert type(command[1]) == str
-        return True
-    except (AssertionError, IndexError, ValueError):
-        return False
-
-
-# not realized
-def is_multi_remind_command(content: str) -> bool:
-    try:
-        command = content.split(' ', maxsplit=2)
-        assert command[0] == 'multiremind'
-        assert type(int(command[1])) == int
-        return True
-    except (AssertionError, IndexError, ValueError):
-        return False
-
-
-def set_timezone(content, email):
+def set_timezone(content, email) -> dict:
     timezone = content.split()[-1]
     return {"timezone": timezone, "email": email}
-
-
-def parse_add_on_date_command_content(message: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Given a message object with reminder details,
-    construct a JSON/dict.
-    """
-
-    user = message['sender_email']
-    content = message['content'].split(' ', maxsplit=3)  # Ensure the last element is str
-    date_str = " ".join([content[1], content[2]]).replace("/", "-")
-    date = datetime.strptime(date_str, "%Y-%m-%d %H:%M").astimezone()
-    return {"zulip_user_email": user,
-            "title": content[3],
-            "created": message['timestamp'],
-            "deadline": date.timestamp(),
-            "active": 1,
-            "on_date": True}
-
-
-def parse_add_command_content(message: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Given a message object with reminder details,
-    construct a JSON/dict.
-    """
-    content = message['content'].split(' ', maxsplit=3)  # Ensure the last element is str
-
-    return {"zulip_user_email": message['sender_email'],
-            "title": content[3],
-            "created": message['timestamp'],
-            "deadline": compute_deadline_timestamp(message['timestamp'], content[1], content[2]),
-            "active": 1}
 
 
 def parse_remove_command_content(content: str, email: str) -> Dict[str, Any]:
@@ -159,112 +169,22 @@ def parse_remove_command_content(content: str, email: str) -> Dict[str, Any]:
     return {'id': command[1], "email": email}
 
 
-def parse_repeat_command_content(content: dict) -> Dict[str, Any]:
-    command = content["content"].split(' ')
-    stream = False
-    if command[1].startswith("@"):
-        to = " ".join(command[1:3]).replace("@", "").replace("*", "")
-    elif command[1] == "me":
-        to = content["sender_email"]
-    else:
-        to = command[1] if command[1] != "here" else content["display_recipient"]
-        stream = True
-    try:
-        index_about = -find_index(command, "about") - 1
-        index_every = -find_index(command, "every") - 1
-    except TypeError:
-        return f"{content['sender_full_name']} you forgot to use about or every"
-    title = " ".join(command[index_about + 1:index_every])
-    topic = content["subject"]
-    when = command[index_every + 1::]
-
-    return {'to': to,
-            'title': title,
-            "time": when,
-            "topic": topic,
-            "zulip_user_email": content["sender_email"],
-            "created": content['timestamp'],
-            "is_stream": stream
-            }
-
-
-def find_index(l, el):
-    for index, i in enumerate(l[::-1]):
-        if i == el:
-            return index
-
-
-def parse_multi_remind_command_content(content: str) -> Dict[str, Any]:
-    """
-    multiremind 23 @**Jose** @**Max** ->
-    {'reminder_id': 23, 'users_to_remind': ['Jose', Max]}
-    """
-    command = content.split(' ', maxsplit=2)
-    users_to_remind = command[2].replace('*', '').replace('@', '').split(' ')
-    return {'reminder_id': command[1],
-            'users_to_remind': users_to_remind}
-
-
-def generate_reminders_list(response: Dict[str, Any]) -> str:
-    bot_response = "Current:"
-
-    completed = "Completed:"
-    reminders_list = response['reminders_list']
-    if not reminders_list:
-        return 'No reminders avaliable.'
-
-    for reminder in reminders_list:
-        if not reminder.get("active"):
-            completed += f"""
-        \nReminder id {reminder['reminder_id']} is scheduled on {reminder['deadline'][:-7] if reminder.get("deadline")
-            else reminder["repeat"]}\n About: {reminder['title']}
-        """
+def generate_reminders_list(reminders: dict) -> str:
+    active_reminders = []
+    completed_reminders = []
+    for reminder in reminders:
+        if reminder["active"]:
+            active_reminders.append(reminder)
             continue
-        if reminder.get("repeat"):
-            bot_response += f"""
-                    \nReminder id {reminder['reminder_id']} is repeated every {reminder['repeat']}\n About: {reminder['title']}
-                    """
-            continue
-        bot_response += f"""
-        \nReminder id {reminder['reminder_id']} is scheduled on {reminder['deadline'][:-7]}\n About: {reminder['title']}
-        """
-    result = completed + "\n" + "==" * 50 + "\n" + bot_response
-    return result
+        completed_reminders.append(reminder)
+    text = "Completed reminders 😴😪: \n" if completed_reminders else ""
+    for i in completed_reminders:
+        text += f"- {i['content']}. Was {i['text_date']}.   Reminder id {i['id']}\n"
 
+    text += "\nUncompleted reminders 🏃: \n" if active_reminders else ""
+    for i in active_reminders:
+        text += f"- {i['content']}. Will {i['text_date']}.   Reminder id {i['id']}\n"
 
-def compute_deadline_timestamp(timestamp_submitted: str, time_value: int, time_unit: str) -> str:
-    """
-    Given a submitted stamp and an interval,
-    return deadline timestamp.
-    """
-    if time_unit in SINGULAR_UNITS:  # Convert singular units to plural
-        time_unit = f"{time_unit}s"
-    interval = timedelta(**{time_unit: int(time_value)})
-    datetime_submitted = datetime.fromtimestamp(timestamp_submitted)
-    return (datetime_submitted + interval).timestamp()
-
-
-def parse_add_command_to_content(content: dict):
-
-    data = content["content"].split(" ")
-
-    try:
-        index_at = -find_index(data, "at") - 1
-        index_about = -find_index(data, "about") - 1
-    except TypeError:
-        return f"{content['sender_full_name']} you forgot to use about or at"
-    name = " ".join(data[2:index_about])
-    to = name.replace("@", "").replace("*", "")
-    title = " ".join(data[5:index_at])
-    time = data[index_at + 1::]
-    if time[-1] in UNITS + SINGULAR_UNITS:
-        date = compute_deadline_timestamp(content['timestamp'], time[0], time[1])
-    else:
-        date = datetime.strptime(" ".join(time).replace("/", "-"), "%Y-%m-%d %H:%M").timestamp()
-    return {"to": to,
-            "title": title,
-            "deadline": date,
-            "active": 1,
-            "zulip_user_email": content["sender_email"],
-            "created": content['timestamp'],
-            }
+    if not text:
+        text = "You don`t have reminders!"
+    return text
