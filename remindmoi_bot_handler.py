@@ -117,9 +117,9 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
             to = message["stream_id"]
         topic = message["subject"] if message["type"] == "stream" else "reminder" if is_stream else None
         url = get_path(to, is_interval, is_stream)
-        text_date = date.strftime("every %A at %H:%M") if is_interval \
-                    else date.strftime(f"on %b %d at %H:%M") \
-                    if not isinstance(date, list) else "every " + " ".join(date)
+        text_date = "every " + " ".join(date) if isinstance(date, list) \
+                    else date.strftime("every %A at %H:%M") if is_interval \
+                    else date.strftime(f"on %b %d at %H:%M")
         reminder = {
             "zulip_user_email": message.get("sender_email"),
             "text": text,
@@ -136,6 +136,7 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
                                  headers={"Content-Type": "application/json; charset=utf-8"}).json()
 
         response_to = "you" if raw_to == "me" else raw_to
+        print(response)
         if not response["success"]:
             return response["result"]
         return_message = f'I will remind {response_to} {prefix} "{text}" {text_date}. Reminder id {response["result"]}'

@@ -169,7 +169,7 @@ async def repeat_reminder(request: Reminder):
     logger.info(f"Interval reminder from {request.zulip_user_email}")
     zone = await get_timezone(request.zulip_user_email)
     if zone is None:
-        return {"success": False, "timezone": "Set timezone, see help"}
+        return {"success": False, "result": "Set timezone, see help"}
     time = request.time
     task = {}
     request.time = None
