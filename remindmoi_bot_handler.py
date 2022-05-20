@@ -117,7 +117,9 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
             to = message["stream_id"]
         topic = message["subject"] if message["type"] == "stream" else "reminder" if is_stream else None
         url = get_path(to, is_interval, is_stream)
-        text_date = date.strftime(f"on %b %d at %H:%M") if not isinstance(date, list) else "every " + " ".join(date)
+        text_date = date.strftime("every %A at %H:%M") if is_interval \
+                    else date.strftime(f"on %b %d at %H:%M") \
+                    if not isinstance(date, list) else "every " + " ".join(date)
         reminder = {
             "zulip_user_email": message.get("sender_email"),
             "text": text,

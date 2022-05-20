@@ -184,11 +184,11 @@ def generate_reminders_list(reminders: dict) -> str:
         completed_reminders.append(reminder)
     text = "Completed reminders 😴😪: \n" if completed_reminders else ""
     for i in completed_reminders:
-        text += f"- {i['content']}. Was {i['text_date']}.   Reminder id {i['id']}\n"
+        text += f"- {i['content']}. Was on {i['text_date']}.   Reminder id {i['id']}\n"
 
     text += "\nUncompleted reminders 🏃: \n" if active_reminders else ""
     for i in active_reminders:
-        text += f"- {i['content']}. Will {i['text_date']}.   Reminder id {i['id']}\n"
+        text += f"- {i['content']}. Will be {i['text_date']}.   Reminder id {i['id']}\n"
 
     if not text:
         text = "You don`t have reminders!"

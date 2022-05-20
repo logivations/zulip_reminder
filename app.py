@@ -405,23 +405,3 @@ async def get_user(full_name):
     for user in members:
         if full_name == user["full_name"]:
             return user["email"]
-
-
-@app.get("/db")
-async def db():
-    jobs = schedule.get_jobs("default")
-    # print(jobs)
-    j = []
-    for i in jobs:
-        job = schedule.get_job(i.id)
-        # print(dir(job))
-        # print(job, job.args)
-        j.append(job.args)
-    r = reminders.select()
-    rem = await database.fetch_all(r)
-    print(json.dumps(rem, indent=4))
-    i = intervals.select()
-    inte = await database.fetch_all(i)
-    print(json.dumps(inte, indent=4))
-    print("================")
-    print(json.dumps(j, indent=4))
