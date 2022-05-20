@@ -136,7 +136,6 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
                                  headers={"Content-Type": "application/json; charset=utf-8"}).json()
 
         response_to = "you" if raw_to == "me" else raw_to
-        print(response)
         if not response["success"]:
             return response["result"]
         return_message = f'I will remind {response_to} {prefix} "{text}" {text_date}. Reminder id {response["result"]}'

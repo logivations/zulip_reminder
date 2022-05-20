@@ -188,7 +188,7 @@ def generate_reminders_list(reminders: dict) -> str:
 
     text += "\nUncompleted reminders 🏃: \n" if active_reminders else ""
     for i in active_reminders:
-        text += f"- {i['content']}. Will be {i['text_date']}.   Reminder id {i['id']}\n"
+        text += f"- {i['content']}.   Reminder id {i['id']}\n"
 
     if not text:
         text = "You don`t have reminders!"
