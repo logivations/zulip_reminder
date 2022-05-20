@@ -215,6 +215,10 @@ async def repeat_reminder(request: Reminder):
 
 
 def get_time_from_list(time: list, task: dict, zone):
+    if is_last_or_first_day_moth(time):
+        time[0] = time[0] if time[0] == "last" else 1
+        if all(i in time for i in ("day", "month")):
+            return {"year": "*", "month": "*", "day": time[0]}, "cron"
     if any(i in ARGS_INTERVAL for i in time):
         return get_interval_time(time, task, zone)
 
@@ -227,6 +231,10 @@ def get_time_from_list(time: list, task: dict, zone):
         time.remove("weekday")
         return get_multiple_day_time(time, task, zone)
     logger.warning(f"Time from list, unsupported type: {time}")
+
+
+def is_last_or_first_day_moth(time):
+    return time[0] in {"last", "first", "1st"}
 
 
 def get_multiple_day_time(time: list, task: dict, zone: float):
@@ -402,9 +410,18 @@ async def get_user(full_name):
 @app.get("/db")
 async def db():
     jobs = schedule.get_jobs("default")
-    print(jobs)
-
+    # print(jobs)
+    j = []
     for i in jobs:
         job = schedule.get_job(i.id)
-        print(dir(job))
-        print(job, job.args)
+        # print(dir(job))
+        # print(job, job.args)
+        j.append(job.args)
+    r = reminders.select()
+    rem = await database.fetch_all(r)
+    print(json.dumps(rem, indent=4))
+    i = intervals.select()
+    inte = await database.fetch_all(i)
+    print(json.dumps(inte, indent=4))
+    print("================")
+    print(json.dumps(j, indent=4))

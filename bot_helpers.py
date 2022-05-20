@@ -52,6 +52,12 @@ def parse_prefix(message: list) -> str:
 def parse_date(cmd: list) -> tuple:
     text = " ".join(cmd)
     index_dict = dict((value, index) for index, value in enumerate(cmd))
+    if re.search(r"every (last|first) day of the month", text):
+        is_interval = True
+        every_idx = index_dict["every"]
+        date = cmd[every_idx + 1::]
+        del cmd[every_idx::]
+        return date, is_interval
     if "repeat every" in text:
         is_interval = True
         rep_idx, every_idx = index_dict["repeat"], index_dict["every"]
@@ -69,7 +75,6 @@ def parse_date(cmd: list) -> tuple:
         every_idx = index_dict["every"]
         date = cmd[every_idx + 1::]
         del cmd[every_idx::]
-
         is_interval = True
         return date, is_interval
     list_text_date = ' '.join([i[0] for i in text_with_date]).split()

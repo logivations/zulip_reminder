@@ -71,7 +71,6 @@ To list reminders:
 '''
 urllib3.disable_warnings()
 
-# logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -116,7 +115,6 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
         text, date, to, is_stream, is_interval, prefix, raw_to = parse_cmd(message)
         if is_stream and message.get("stream_id", False):
             to = message["stream_id"]
-        print(date)
         topic = message["subject"] if message["type"] == "stream" else "reminder" if is_stream else None
         url = get_path(to, is_interval, is_stream)
         text_date = date.strftime(f"on %b %d at %H:%M") if not isinstance(date, list) else "every " + " ".join(date)
@@ -132,24 +130,15 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
             "full_content": content,
             "text_date": text_date,
         }
-        print(reminder)
         response = requests.post(url=url, json=reminder,
                                  headers={"Content-Type": "application/json; charset=utf-8"}).json()
 
-        print("32323,", response)
         response_to = "you" if raw_to == "me" else raw_to
-        # when = date.strftime(f"on %b %d at %H:%M") if not isinstance(date, list) else "every " + " ".join(date)
         if not response["success"]:
             return response["result"]
         return_message = f'I will remind {response_to} {prefix} "{text}" {text_date}. Reminder id {response["result"]}'
         return return_message
-        # # return return_message
-        # message_to_client = {
-        #     "type": "private",
-        #     "to": reminder["zulip_user_email"],
-        #     "content": ""
-        # }
-        # return return_message
+
     except requests.exceptions.ConnectionError:
         logger.warning("Server not running")
         return "Server not running, call Pavlo Y."
