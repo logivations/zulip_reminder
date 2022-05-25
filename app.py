@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import re
 from math import modf
 from typing import Optional
 
@@ -194,7 +195,7 @@ async def repeat_reminder(request: Reminder):
         task["day_of_week"] = time.weekday()
         task["hour"] = time.hour
         task["minute"] = time.minute
-
+    print(task)
     query = reminder_insert_expression(request)
     last_record_id = await database.execute(query)
     interval_query = intervals.insert().values(
@@ -218,7 +219,13 @@ def get_time_from_list(time: list, task: dict, zone):
     if is_last_or_first_day_moth(time):
         time[0] = time[0] if time[0] == "last" else 1
         if all(i in time for i in ("day", "month")):
-            return {"year": "*", "month": "*", "day": time[0]}, "cron"
+            task = {"year": "*", "month": "*", "day": time[0], "hour": 9, "minute": 0}
+            if re.search(r"at \d{2}:\d{2}", " ".join(time)):
+                idx = time.index("at") + 1
+                hour, minute = time[idx].split(":")
+                task["hour"] = hour
+                task["minute"] = minute
+            return task, "cron"
     if any(i in ARGS_INTERVAL for i in time):
         return get_interval_time(time, task, zone)
 

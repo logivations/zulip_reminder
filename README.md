@@ -47,7 +47,10 @@ If you want to send reminder on a specific topic then create a reminder inside t
 ```#stream about Estimation every 2nd week at 15:00 start on Monday```
 ```#stream about text every 2nd week at 15:00 start on June 2```
 with end date
-````#stream text every week at 15:00 start on Monday end on 2 June````
+```#stream text every week at 15:00 start on Monday end on 2 June```
+or you can add reminder for every last or first day of the month
+```<to> <some text> every last day of the month``` will be every last day at 9:00 or 
+ if you need to set time ```<to> <some text> every last day of the month at 15:00```
 
 
 To remove a reminder:
