@@ -58,6 +58,12 @@ def parse_date(cmd: list) -> tuple:
         date = cmd[every_idx + 1::]
         del cmd[every_idx::]
         return date, is_interval
+    if re.search(r"every ((\d(th|nd|rd)|\d) month|month)", text):
+        is_interval = True
+        every_idx = index_dict["every"]
+        date = cmd[every_idx + 1::]
+        del cmd[every_idx::]
+        return date, is_interval
     if "repeat every" in text:
         is_interval = True
         rep_idx, every_idx = index_dict["repeat"], index_dict["every"]

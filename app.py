@@ -267,8 +267,8 @@ def get_interval_time(time: list, task: dict, zone):
     if time[idx] in ARGS_INTERVAL:
         interval = time[idx] if time[idx].endswith('s') else time[idx] + "s"
         task[interval] = frequency
-    if len(time) == idx + 1:
-        time.append("at 9:00")
+    if "at" not in time:
+        time.insert(idx + 1, "at 9:00")
     time = time[idx + 1::]
     time, start = find_start_end(time, "start")
     start, end = find_start_end(start, "end")
@@ -291,6 +291,13 @@ def get_interval_time(time: list, task: dict, zone):
         task["end_date"] = end_date
 
     trigger = "interval"
+    if task.get("months") is not None:
+        trigger = "cron"
+        value = task["months"]
+        del task["months"]
+        interval_value = "*" if value == 1 else f"*/{value}"
+        task["month"] = interval_value
+
     return task, trigger
 
 
