@@ -64,7 +64,7 @@ async def shutdown():
 def convert_zone(zone: float):
     minutes, hour = modf(zone)
     minutes *= 60
-    return hour, minutes
+    return int(hour), int(minutes)
 
 
 def reminder_insert_expression(reminder: Reminder):
@@ -224,8 +224,8 @@ def get_time_from_list(time: list, task: dict, zone):
             if re.search(r"at \d{2}:\d{2}", " ".join(time)):
                 idx = time.index("at") + 1
                 hour, minute = time[idx].split(":")
-                task["hour"] = hour + hours
-                task["minute"] = minute + minutes
+                task["hour"] = int(hour) + hours
+                task["minute"] = int(minute) + minutes
             return task, "cron"
     if any(i in ARGS_INTERVAL for i in time):
         return get_interval_time(time, task, zone)
