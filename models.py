@@ -61,6 +61,7 @@ class Reminder(BaseModel):
     topic: Optional[str] = None
     is_stream: Optional[bool] = False
     is_interval: bool = False
+    is_use_timezone: bool = True
 
 
 DATABASE_URL = "sqlite:///./test1.db"

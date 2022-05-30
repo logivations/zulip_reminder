@@ -36,10 +36,10 @@ def parse_cmd(message: dict) -> tuple:
     if is_marked:
         text, command = parse_marked_text(command)
 
-    date, is_interval = parse_date(command)
+    date, is_interval, is_use_timezone = parse_date(command)
     if not is_marked:
         text = parse_text(command)
-    return text, date, to, is_stream, is_interval, prefix, raw_to
+    return text, date, to, is_stream, is_interval, prefix, raw_to, is_use_timezone
 
 
 def parse_prefix(message: list) -> str:
@@ -51,46 +51,49 @@ def parse_prefix(message: list) -> str:
 
 def parse_date(cmd: list) -> tuple:
     text = " ".join(cmd)
+    is_use_timezone = True
     index_dict = dict((value, index) for index, value in enumerate(cmd))
     if re.search(r"every (last|first) day of the month", text):
         is_interval = True
         every_idx = index_dict["every"]
         date = cmd[every_idx + 1::]
         del cmd[every_idx::]
-        return date, is_interval
+        return date, is_interval, is_use_timezone
     if re.search(r"every ((\d(th|nd|rd)|\d) month|month)", text):
         is_interval = True
         every_idx = index_dict["every"]
         date = cmd[every_idx + 1::]
         del cmd[every_idx::]
-        return date, is_interval
+        return date, is_interval, is_use_timezone
     if "repeat every" in text:
         is_interval = True
         rep_idx, every_idx = index_dict["repeat"], index_dict["every"]
         date = cmd[every_idx + 1::]
         del cmd[rep_idx::]
-        return date, is_interval
+        return date, is_interval, is_use_timezone
     if "every weekday" in text:
         is_interval = True
         every_idx = index_dict["every"]
         date = cmd[every_idx + 1::]
         del cmd[every_idx::]
-        return date, is_interval
+        return date, is_interval, is_use_timezone
     text_with_date = search_dates(text, settings={"PREFER_DATES_FROM": "current_period"})
     if text_with_date is None and "every" in cmd:
         every_idx = index_dict["every"]
         date = cmd[every_idx + 1::]
         del cmd[every_idx::]
         is_interval = True
-        return date, is_interval
+        return date, is_interval, is_use_timezone
     list_text_date = ' '.join([i[0] for i in text_with_date]).split()
+    if "in" in list_text_date:
+        is_use_timezone = False
     if index_dict.get("every") is not None and (any(i in cmd for i in SINGULAR_UNITS + UNITS) or sum(
             1 for i in cmd[index_dict["every"]::] if i.lower().replace(",", "") in ARGS_WEEK_DAY) > 1):
         is_interval = True
         every_idx = index_dict["every"]
         date = cmd[every_idx + 1::]
         del cmd[every_idx::]
-        return date, is_interval
+        return date, is_interval, is_use_timezone
     date: datetime = text_with_date[-1][-1]
     date_indexes = [index_dict[i] for i in list_text_date]
     is_interval = True if cmd[date_indexes[0] - 1] == "every" else False
@@ -99,7 +102,7 @@ def parse_date(cmd: list) -> tuple:
         date_indexes.insert(0, date_indexes[0] - 1)
     del cmd[date_indexes[0]:date_indexes[-1] + 1]
 
-    if date < datetime.now():
+    if (date + timedelta(hours=1)) < datetime.now():
 
         if re.match(r"at\s\d{2}:\d{2}", text_with_date[-1][0]) is not None:
             period = {"days": 1}
@@ -111,7 +114,7 @@ def parse_date(cmd: list) -> tuple:
         date += timedelta(**period)
     if date.hour == 0:
         date += timedelta(hours=9)
-    return date, is_interval
+    return date, is_interval, is_use_timezone
 
 
 def parse_send_to(content: list, message: dict) -> tuple:

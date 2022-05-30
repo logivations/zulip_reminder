@@ -86,7 +86,10 @@ def reminder_insert_expression(reminder: Reminder):
 @app.post("/add_reminder", response_class=JSONResponse)
 async def add_reminder(request: Reminder):
     logger.info(f"Simple reminder from {request.zulip_user_email}")
-    zone = await get_timezone(request.zulip_user_email)
+    if not request.is_use_timezone:
+        zone = 0.0
+    else:
+        zone = await get_timezone(request.zulip_user_email)
     if zone is None:
         return {"success": False, "result": "Set timezone, see help"}
     hour, minutes = convert_zone(zone)
@@ -168,9 +171,13 @@ async def remove_reminder(request: Remove):
 @app.post("/repeat_reminder", response_class=JSONResponse)
 async def repeat_reminder(request: Reminder):
     logger.info(f"Interval reminder from {request.zulip_user_email}")
-    zone = await get_timezone(request.zulip_user_email)
+    if not request.is_use_timezone:
+        zone = 0.0
+    else:
+        zone = await get_timezone(request.zulip_user_email)
     if zone is None:
         return {"success": False, "result": "Set timezone, see help"}
+
     time = request.time
     task = {}
     request.time = None
@@ -341,7 +348,10 @@ def send_zulip_reminder(message: dict):
 @app.post("/add_to", response_class=JSONResponse)
 async def add_reminder_to_person(request: Reminder):
     logger.info(f"Reminder to someone from {request.zulip_user_email}")
-    zone = await get_timezone(request.zulip_user_email)
+    if not request.is_use_timezone:
+        zone = 0.0
+    else:
+        zone = await get_timezone(request.zulip_user_email)
     if zone is None:
         return {"success": False, "result": "Set timezone, see help"}
     hour, minutes = convert_zone(zone)

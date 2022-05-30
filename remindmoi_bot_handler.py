@@ -115,7 +115,7 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
             assert response["success"]
             return generate_reminders_list(response["reminders_list"])
 
-        text, date, to, is_stream, is_interval, prefix, raw_to = parse_cmd(message)
+        text, date, to, is_stream, is_interval, prefix, raw_to, is_use_timezone = parse_cmd(message)
         if is_stream and message.get("stream_id", False):
             to = message["stream_id"]
         topic = message["subject"] if message["type"] == "stream" else "reminder" if is_stream else None
@@ -134,6 +134,7 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
             "is_interval": is_interval,
             "full_content": content,
             "text_date": text_date,
+            "is_use_timezone": is_use_timezone,
         }
         response = requests.post(url=url, json=reminder,
                                  headers={"Content-Type": "application/json; charset=utf-8"}).json()
