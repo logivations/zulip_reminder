@@ -41,7 +41,7 @@ ARGS_WEEK_DAY = {
 DAY_DICT = {"monday": "mon", "tuesday": "tue", "wednesday": "wed", "thursday": "thu", "friday": "fri",
             "saturday": "sat", "sunday": "sun"}
 ARGS_INTERVAL = {"minute", "hour", "day", "week", "month", "minutes", "hours", "days", "weeks", "months"}
-FREQUENCY = {"second": 2, "2nd": 2, "2": 2, "3": 3, "two": 2, "three": 3, "3rd": 3, "third": 3}
+FREQUENCY = {"second": 2, "2nd": 2, "2": 2, "3": 3, "two": 2, "three": 3, "3rd": 3, "third": 3, "4": 4, "4th": 4, "four": 4}
 app = FastAPI()
 
 
@@ -430,3 +430,30 @@ async def get_user(full_name):
     for user in members:
         if full_name == user["full_name"]:
             return user["email"]
+
+
+@app.get("/restore")
+async def restore_jobs():
+    rem_expr = reminders.select().where(reminders.c.active == 1)
+    all_reminders = await database.fetch_all(rem_expr)
+    int_expr = intervals.select()
+    all_intervals = await database.fetch_all(int_expr)
+    all_reminders = {i.id: i for i in all_reminders}
+    schedule.remove_all_jobs("default")
+    for i in all_intervals:
+        trigger = "cron"
+        task = json.loads(i.interval_time.replace("'", "\""))
+        if task.get("day_of_week") is None and task.get("month") is None:
+            trigger = "interval"
+        reminder = all_reminders.get(i.reminder_id)
+        task.update(dict(
+            args=[reminder.id, reminder.to, reminder.is_stream, reminder.topic],
+            id=str(reminder.id)))
+        schedule.add_job(
+            send_interval_reminder,
+            trigger,
+            **task
+        )
+        # del all_reminders[reminder.id]
+
+    # for key, reminder in all_reminders.items():
