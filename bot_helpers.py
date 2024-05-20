@@ -136,7 +136,7 @@ def parse_stream_name(text: list) -> str:
     last_index = None
     for idx, i in enumerate(text[1:]):
         if i.endswith("**"):
-            last_index = idx
+            last_index = idx + 1
             break
     stream_name = " ".join(text[:last_index + 1])
     del text[:last_index + 1]
