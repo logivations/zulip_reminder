@@ -15,7 +15,7 @@ from bot_helpers import (REMOVE_ENDPOINT,
 USAGE = '''
 The first step is to set timezone:
 For example:
-`set timezone Europe/Kiev`
+`set timezone Europe/Kyiv`
 `set timezone Europe/Berlin`
 
 To find out who the creator of a reminder in a stream is, write `who #stream_name` to the bot:
