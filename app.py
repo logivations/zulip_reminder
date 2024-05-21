@@ -461,9 +461,12 @@ async def restore_jobs():
 
 @app.get("/who")
 async def who_creator(stream_name: str):
-    stream_id = client.get_stream_id(
-        stream_name.replace("#", "").replace("**", "")
-    )["stream_id"]
+    try:
+        stream_id = client.get_stream_id(
+            stream_name.replace("#", "").replace("**", "")
+        )["stream_id"]
+    except KeyError:
+        return {"success": False, "error": "Probably bot not in this private stream as member"}
     stream_reminders = await database.fetch_all(reminders.select().where(
         and_(
             reminders.c.to == stream_id, reminders.c.active == 1

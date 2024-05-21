@@ -123,8 +123,10 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
             stream_name = " ".join(content.split()[1::])
             response = requests.get(url=WHO_ENDPOINT, params=dict(stream_name=stream_name))
             response = response.json()
-            assert response["success"]
-            return generate_who_list(response["reminders"])
+            if response["success"]:
+                reminders = response["reminders"]
+                return generate_who_list(reminders) if reminders else "No reminders for this stream"
+            return response["error"]
 
         text, date, to, is_stream, is_interval, prefix, raw_to, is_use_timezone = parse_cmd(message)
         if is_stream and message.get("stream_id", False):
