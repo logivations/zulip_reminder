@@ -22,6 +22,7 @@ LIST_ENDPOINT = ENDPOINT_URL + '/list_reminders'
 REPEAT_ENDPOINT = ENDPOINT_URL + '/repeat_reminder'
 ADD_TO_ENDPOINT = ENDPOINT_URL + "/add_to"
 SET_TIMEZONE = ENDPOINT_URL + "/timezone"
+WHO_ENDPOINT = ENDPOINT_URL + "/who"
 send_to = {"me": lambda x, o: (x, o["sender_id"]),
            "here": lambda x, o: (True, o["stream_id"]) if o["type"] == "stream" else send_to["me"](x, o)}
 
@@ -202,3 +203,12 @@ def generate_reminders_list(reminders: dict) -> str:
     if not text:
         text = "You don`t have reminders!"
     return text
+
+
+def generate_who_list(reminders: dict):
+    full_text = """
+ ID  | Owner      | Text        | When  
+ ----| ---------- | ----------- | -----"""
+    for reminder in reminders:
+        full_text += f"\n{reminder['id']} | {reminder['owner']} | {reminder['content']} | {reminder['text_date']}"
+    return full_text

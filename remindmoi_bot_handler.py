@@ -10,13 +10,17 @@ from bot_helpers import (REMOVE_ENDPOINT,
                          parse_remove_command_content,
                          generate_reminders_list,
                          is_set_timezone,
-                         set_timezone, SET_TIMEZONE, parse_cmd, get_path)
+                         set_timezone, SET_TIMEZONE, parse_cmd, get_path, WHO_ENDPOINT, generate_who_list)
 
 USAGE = '''
 The first step is to set timezone:
 For example:
 `set timezone Europe/Kiev`
 `set timezone Europe/Berlin`
+
+To find out who the creator of a reminder in a stream is, write `who #stream_name` to the bot:
+``who #general``
+It works only for stream reminders, personally reminders are protected
 
 To store a reminder, write a private message to chat with the bot 
 or if you are in another chat then start your message with the mention of a reminder, like ``@reminder ...``
@@ -114,6 +118,13 @@ def get_bot_response(message: Dict[str, Any], bot_handler: Any):
 
             assert response["success"]
             return generate_reminders_list(response["reminders_list"])
+
+        if content.startswith("who"):
+            stream_name = " ".join(content.split()[1::])
+            response = requests.get(url=WHO_ENDPOINT, params=dict(stream_name=stream_name))
+            response = response.json()
+            assert response["success"]
+            return generate_who_list(response["reminders"])
 
         text, date, to, is_stream, is_interval, prefix, raw_to, is_use_timezone = parse_cmd(message)
         if is_stream and message.get("stream_id", False):

@@ -6,6 +6,10 @@ For example:
 `set timezone Europe/Kiev`
 `set timezone Europe/Berlin`
 
+To find out who the creator of a reminder in a stream is, write `who #stream_name` to the bot:
+``who #general``
+It works only for stream reminders, personally reminders are protected
+
 To store a reminder, write a private message to chat with the bot 
 or if you are in another chat then start your message with the mention of a reminder, like ``@reminder ...``
 

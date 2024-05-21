@@ -457,3 +457,25 @@ async def restore_jobs():
         # del all_reminders[reminder.id]
 
     # for key, reminder in all_reminders.items():
+
+
+@app.get("/who")
+async def who_creator(stream_name: str):
+    stream_id = client.get_stream_id(
+        stream_name.replace("#", "").replace("**", "")
+    )["stream_id"]
+    stream_reminders = await database.fetch_all(reminders.select().where(
+        and_(
+            reminders.c.to == stream_id, reminders.c.active == 1
+        )
+    ))
+    response_reminders = []
+    for reminder in stream_reminders:
+        data = {
+            "id": reminder.id,
+            "owner": reminder.zulip_user_email,
+            "content": reminder.text,
+            "text_date": reminder.text_date,
+        }
+        response_reminders.append(data)
+    return {"success": True, "reminders": response_reminders}
